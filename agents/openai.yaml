@@ -1,0 +1,3 @@
+display_name: Disk Cleanup Assistant
+short_description: Guided Mac disk cleanup
+default_prompt: Help me scan this Mac for large cleanup candidates, present an interactive delete list, then clean selected items and run git gc where appropriate.
