@@ -1,0 +1,39 @@
+<svg width="1200" height="420" viewBox="0 0 1200 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Disk cleanup workflow</title>
+  <desc id="desc">Scan, review, dry-run, confirm cleanup, and optionally run git gc.</desc>
+  <rect width="1200" height="420" rx="18" fill="#F5F7FB"/>
+  <rect x="38" y="44" width="1124" height="332" rx="16" fill="white" stroke="#D9E0EA"/>
+  <text x="70" y="92" fill="#182230" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="28" font-weight="700">Conservative Cleanup Flow</text>
+  <text x="70" y="123" fill="#667085" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="16">Nothing is deleted until the saved selection is dry-run and explicitly confirmed.</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2L10 6L2 10" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">
+    <rect x="80" y="178" width="162" height="112" rx="12" fill="#EEF4FF" stroke="#B2CCFF"/>
+    <text x="112" y="222" fill="#1D4ED8" font-size="20" font-weight="700">1. Scan</text>
+    <text x="112" y="252" fill="#344054" font-size="14">Read-only size map</text>
+
+    <line x1="252" y1="234" x2="330" y2="234" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="342" y="178" width="162" height="112" rx="12" fill="#F0FDF4" stroke="#BBF7D0"/>
+    <text x="374" y="222" fill="#047857" font-size="20" font-weight="700">2. Review</text>
+    <text x="374" y="252" fill="#344054" font-size="14">Local selector page</text>
+
+    <line x1="514" y1="234" x2="592" y2="234" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="604" y="178" width="162" height="112" rx="12" fill="#FFF7ED" stroke="#FED7AA"/>
+    <text x="636" y="222" fill="#C2410C" font-size="20" font-weight="700">3. Dry-run</text>
+    <text x="636" y="252" fill="#344054" font-size="14">Audit planned deletes</text>
+
+    <line x1="776" y1="234" x2="854" y2="234" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="866" y="178" width="162" height="112" rx="12" fill="#FDF2F8" stroke="#FBCFE8"/>
+    <text x="898" y="222" fill="#BE185D" font-size="20" font-weight="700">4. Confirm</text>
+    <text x="898" y="252" fill="#344054" font-size="14">Token-gated cleanup</text>
+
+    <path d="M947 300C947 336 826 342 738 318" stroke="#667085" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#arrow)"/>
+    <rect x="568" y="310" width="210" height="48" rx="24" fill="#ECFDF3" stroke="#A6F4C5"/>
+    <text x="606" y="341" fill="#047857" font-size="16" font-weight="700">Optional: git gc</text>
+  </g>
+</svg>
