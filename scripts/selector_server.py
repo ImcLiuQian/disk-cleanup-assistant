@@ -16,14 +16,22 @@ def load_candidates(path: Path) -> list[dict]:
 
 
 def render_html(candidates: list[dict], selection_path: Path) -> str:
+    total_gb = sum(float(item.get("size_gb", 0)) for item in candidates)
+    tag_counts: dict[str, int] = {}
+    for item in candidates:
+        tag = item.get("tag", "untagged")
+        tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    tag_summary = " · ".join(f"{html.escape(tag)} {count}" for tag, count in sorted(tag_counts.items()))
     rows = []
     for item in candidates:
+        tag = item.get("tag", "")
         rows.append(
             "<tr>"
-            f"<td><input type='checkbox' data-id='{html.escape(item['id'])}'></td>"
-            f"<td>{html.escape(item['id'])}</td>"
+            f"<td><input type='checkbox' aria-label='Delete {html.escape(item['id'])}' data-id='{html.escape(item['id'])}'></td>"
+            f"<td class='mono'>{html.escape(item['id'])}</td>"
             f"<td class='num'>{float(item.get('size_gb', 0)):.2f}</td>"
-            f"<td>{html.escape(item.get('tag', ''))}</td>"
+            f"<td><span class='tag'>{html.escape(tag)}</span></td>"
             f"<td>{html.escape(item.get('recommendation', ''))}</td>"
             f"<td>{html.escape(item.get('kind', ''))}</td>"
             f"<td><code>{html.escape(item.get('path', ''))}</code></td>"
@@ -36,32 +44,97 @@ def render_html(candidates: list[dict], selection_path: Path) -> str:
   <meta charset="utf-8">
   <title>Disk Cleanup Selector</title>
   <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 24px; color: #17202a; }}
-    table {{ border-collapse: collapse; width: 100%; font-size: 13px; }}
-    th, td {{ border-bottom: 1px solid #d8dee4; padding: 8px; text-align: left; vertical-align: top; }}
-    th {{ position: sticky; top: 0; background: white; }}
-    code {{ white-space: nowrap; }}
+    :root {{
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --line: #d9e0ea;
+      --text: #182230;
+      --muted: #667085;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --safe: #0f766e;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }}
+    main {{ max-width: 1180px; margin: 0 auto; padding: 28px; }}
+    header {{ margin-bottom: 18px; }}
+    h1 {{ margin: 0 0 6px; font-size: 30px; letter-spacing: 0; }}
+    p {{ color: var(--muted); margin: 0; }}
+    .summary {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }}
+    .metric {{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }}
+    .metric b {{ display: block; font-size: 22px; margin-bottom: 3px; }}
+    .metric span {{ color: var(--muted); font-size: 13px; }}
+    .toolbar {{
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }}
+    .actions {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+    button {{
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }}
+    button.primary {{ background: var(--accent); border-color: var(--accent); color: white; }}
+    button.primary:hover {{ background: var(--accent-dark); }}
+    #status {{ color: var(--safe); font-weight: 600; }}
+    .table-wrap {{ overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }}
+    table {{ border-collapse: collapse; width: 100%; min-width: 980px; font-size: 13px; }}
+    th, td {{ border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }}
+    th {{ position: sticky; top: 0; background: #fbfcfe; color: #344054; font-size: 12px; text-transform: uppercase; }}
+    tr:last-child td {{ border-bottom: 0; }}
+    code, .mono {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }}
+    code {{ white-space: nowrap; color: #344054; }}
+    .tag {{ display: inline-block; padding: 3px 8px; border-radius: 999px; background: #eef4ff; color: #1d4ed8; font-weight: 700; white-space: nowrap; }}
     .num {{ text-align: right; }}
-    .bar {{ display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }}
-    button {{ padding: 7px 12px; border: 1px solid #9aa4b2; background: #f6f8fa; border-radius: 6px; cursor: pointer; }}
-    #status {{ color: #226d2c; }}
+    .selection-path {{ max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
   </style>
 </head>
 <body>
-  <h1>Disk Cleanup Selector</h1>
-  <div class="bar">
-    <button onclick="setAll(true)">全选</button>
-    <button onclick="setAll(false)">全不选</button>
-    <button onclick="save()">保存选择</button>
-    <span id="status"></span>
-  </div>
-  <p>保存位置：<code>{html.escape(str(selection_path))}</code></p>
-  <table>
-    <thead>
-      <tr><th>删</th><th>ID</th><th>GiB</th><th>Tag</th><th>建议</th><th>类型</th><th>路径</th><th>原因</th></tr>
-    </thead>
-    <tbody>{''.join(rows)}</tbody>
-  </table>
+  <main>
+    <header>
+      <h1>Disk Cleanup Selector</h1>
+      <p>Review scan candidates and save an explicit delete list before running cleanup.</p>
+    </header>
+    <section class="summary" aria-label="Scan summary">
+      <div class="metric"><b>{len(candidates)}</b><span>Candidates</span></div>
+      <div class="metric"><b>{total_gb:.2f} GiB</b><span>Total reviewed size</span></div>
+      <div class="metric"><b>{html.escape(str(len(tag_counts)))}</b><span>{tag_summary or "No tags"}</span></div>
+    </section>
+    <div class="toolbar">
+      <div class="actions">
+        <button onclick="setAll(true)">Select all</button>
+        <button onclick="setAll(false)">Clear</button>
+        <button class="primary" onclick="save()">Save selection</button>
+      </div>
+      <span id="status"></span>
+      <code class="selection-path">{html.escape(str(selection_path))}</code>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Delete</th><th>ID</th><th>GiB</th><th>Tag</th><th>Recommendation</th><th>Type</th><th>Path</th><th>Reason</th></tr>
+        </thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </div>
+  </main>
   <script>
     function boxes() {{ return Array.from(document.querySelectorAll('input[type=checkbox]')); }}
     function setAll(value) {{ boxes().forEach(b => b.checked = value); }}
@@ -73,7 +146,7 @@ def render_html(candidates: list[dict], selection_path: Path) -> str:
         body: JSON.stringify({{ delete_ids, saved_at: new Date().toISOString() }})
       }});
       const data = await res.json();
-      document.getElementById('status').textContent = `已保存 ${{data.delete_ids.length}} 项`;
+      document.getElementById('status').textContent = `Saved ${{data.delete_ids.length}} item(s)`;
     }}
   </script>
 </body>
