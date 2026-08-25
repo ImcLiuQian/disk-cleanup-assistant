@@ -14,6 +14,8 @@ Disk Cleanup Assistant is designed for the moment when "System Data" or "Documen
 
 - Large file and directory scans with configurable roots, depth, and size threshold.
 - Candidate tagging for caches, review-needed data, app bundles, git metadata, and protected paths.
+- An explicit delete recommendation and expected-impact explanation for every candidate, including legacy scan files.
+- A Chinese-default selector with an in-page English toggle that preserves checkbox state.
 - Markdown and JSON scan reports for human review and automation.
 - A local browser selector with delete / keep choices.
 - Dry-run cleanup logs before destructive execution.
@@ -78,7 +80,7 @@ Open:
 http://127.0.0.1:8765/
 ```
 
-Select only the items you want to delete, then save the selection.
+The page defaults to Chinese. Use the `English` button in the upper-right corner to switch the complete interface without changing checkbox state. Review the recommendation and impact columns, then select only the items you want to delete and save the selection. These fields are guidance, not deletion authorization.
 
 ### 3. Dry-Run The Selection
 

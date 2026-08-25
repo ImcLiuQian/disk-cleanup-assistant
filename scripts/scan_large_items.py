@@ -34,6 +34,7 @@ class Candidate:
     size_gb: float
     tag: str
     recommendation: str
+    impact: str
     reason: str
 
 
@@ -89,7 +90,7 @@ def iter_large_files(root: Path, threshold_kb: int, max_depth: int) -> list[tupl
     return rows
 
 
-def classify(path: Path, kind: str) -> tuple[str, str, str]:
+def classify(path: Path, kind: str) -> tuple[str, str, str, str]:
     text = str(path)
     lowered = text.lower()
     resolved = path.resolve(strict=False)
@@ -97,11 +98,40 @@ def classify(path: Path, kind: str) -> tuple[str, str, str]:
         resolved == protected or (protected != Path("/") and protected in resolved.parents)
         for protected in PROTECTED
     ):
-        return "do-not-delete", "keep", "system or protected location"
+        return (
+            "do-not-delete",
+            "keep",
+            "system or protected location",
+            "可能破坏 macOS 或关键工具；清理脚本也会阻止删除。",
+        )
     if "/.git" in text or text.endswith("/.git"):
-        return "git-maintenance", "git-gc", "use git gc rather than deleting repository metadata"
+        return (
+            "git-maintenance",
+            "git-gc",
+            "use git gc rather than deleting repository metadata",
+            "直接删除会破坏仓库历史、分支和 Git 状态；应改用 git gc。",
+        )
     if text.startswith("/Applications") and text.endswith(".app"):
-        return "app-uninstall", "review", "application bundle; remove only if the user selects uninstall"
+        return (
+            "app-uninstall",
+            "review",
+            "application bundle; remove only if the user selects uninstall",
+            "应用本体将无法启动；Library 下的设置和用户数据通常仍会保留。",
+        )
+    if "/.npm/_npx" in text:
+        return (
+            "safe-cache",
+            "delete",
+            "downloaded npx package cache that can be rebuilt",
+            "已下载的 npx 临时包会被清除；下次运行 npx 时会重新下载。",
+        )
+    if "chrome" in lowered and "/service worker/cachestorage" in lowered:
+        return (
+            "review",
+            "review",
+            "browser site cache inside a profile; close the browser and review before deleting",
+            "网站和 PWA 会重建缓存，离线数据可能丢失；Cookie、历史记录和书签通常不受影响。",
+        )
     cache_markers = [
         "/Library/Caches",
         "/.npm/_cacache",
@@ -112,7 +142,26 @@ def classify(path: Path, kind: str) -> tuple[str, str, str]:
         "/node_modules",
     ]
     if any(marker in text for marker in cache_markers):
-        return "safe-cache", "delete", "cache/build artifact that can usually be rebuilt"
+        if "/JetBrains/" in text:
+            impact = "IDE 索引和缓存会重建；下次启动可能较慢，并会暂时占用更多 CPU。"
+        elif "org.sparkle-project.Sparkle" in text:
+            impact = "已下载的更新包会被清除，应用可能重新下载；更新进行中不要删除。"
+        elif "/.npm/_cacache" in text:
+            impact = "npm 包缓存会被清除；后续安装会重新下载，但项目文件不受影响。"
+        elif "/go/pkg/mod" in text:
+            impact = "已下载的 Go Modules 会被清除；后续构建会重新下载，首次构建更慢。"
+        elif "/node_modules" in text:
+            impact = "已安装依赖会被清除；再次构建或运行项目前需要重新安装依赖。"
+        else:
+            impact = "通常不影响个人数据；应用或工具会重建或重新下载缓存，首次启动或构建可能变慢。"
+        return "safe-cache", "delete", "cache/build artifact that can usually be rebuilt", impact
+    if text.startswith(str(HOME / "my_project")):
+        return (
+            "review",
+            "review",
+            "project directory; verify repository state and generated-output boundaries",
+            "可能永久删除源码、未提交修改、Git 元数据和构建产物；只应删除已确认无用的子目录。",
+        )
     review_markers = [
         "/Downloads",
         "/Documents",
@@ -125,10 +174,26 @@ def classify(path: Path, kind: str) -> tuple[str, str, str]:
         "output",
     ]
     if any(marker.lower() in lowered for marker in review_markers):
-        return "review", "review", "may contain user or app data; inspect before deleting"
+        if "/library/application support" in lowered:
+            impact = "可能清除应用设置、会话、离线数据或本地运行文件，并导致重新登录或下载。"
+        elif any(marker in lowered for marker in ["/downloads", "/documents", "/desktop"]):
+            impact = "这里可能是个人文件；若无其他备份，删除后会永久丢失。"
+        else:
+            impact = "可能包含用户、项目或应用数据；删除前先检查内容与备份。"
+        return "review", "review", "may contain user or app data; inspect before deleting", impact
     if kind == "file":
-        return "review", "review", "large file; user should decide"
-    return "review", "review", "large directory; user should decide"
+        return (
+            "review",
+            "review",
+            "large file; user should decide",
+            "文件会被永久删除；先确认内容、来源和备份。",
+        )
+    return (
+        "review",
+        "review",
+        "large directory; user should decide",
+        "目录及全部内容会被永久删除；勾选前先检查。",
+    )
 
 
 def unique_rows(rows: list[tuple[int, Path, str]]) -> list[tuple[int, Path, str]]:
@@ -147,12 +212,12 @@ def write_markdown(candidates: list[Candidate], path: Path) -> None:
     lines = [
         "# Disk Cleanup Candidates",
         "",
-        "| ID | Size | Tag | Recommendation | Kind | Path | Reason |",
-        "| --- | ---: | --- | --- | --- | --- | --- |",
+        "| ID | Size | Tag | Recommendation | Impact if deleted | Kind | Path | Reason |",
+        "| --- | ---: | --- | --- | --- | --- | --- | --- |",
     ]
     for item in candidates:
         lines.append(
-            f"| {item.id} | {item.size_gb:.2f} GiB | {item.tag} | {item.recommendation} | "
+            f"| {item.id} | {item.size_gb:.2f} GiB | {item.tag} | {item.recommendation} | {item.impact} | "
             f"{item.kind} | `{item.path}` | {item.reason} |"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -179,7 +244,7 @@ def main() -> int:
 
     candidates: list[Candidate] = []
     for index, (size_kb, path, kind) in enumerate(rows, 1):
-        tag, recommendation, reason = classify(path, kind)
+        tag, recommendation, reason, impact = classify(path, kind)
         candidates.append(
             Candidate(
                 id=f"I{index:03d}",
@@ -188,6 +253,7 @@ def main() -> int:
                 size_gb=round(size_kb / 1024 / 1024, 3),
                 tag=tag,
                 recommendation=recommendation,
+                impact=impact,
                 reason=reason,
             )
         )

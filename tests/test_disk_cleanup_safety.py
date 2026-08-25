@@ -43,6 +43,66 @@ class DiskCleanupSafetyTests(unittest.TestCase):
         self.assertEqual(scan_large_items.classify(Path("/usr/local/bin/tool"), "file")[0], "do-not-delete")
         self.assertEqual(scan_large_items.classify(Path.home() / "Library" / "Caches" / "Example", "dir")[0], "safe-cache")
 
+    def test_scanner_provides_actionable_delete_impact(self):
+        cases = [
+            (Path("/System/Library"), "dir"),
+            (Path.home() / ".npm" / "_npx", "dir"),
+            (Path.home() / "Library" / "Application Support" / "Example", "dir"),
+            (Path.home() / "my_project" / "repo" / ".git", "dir"),
+        ]
+        for path, kind in cases:
+            tag, recommendation, _reason, impact = scan_large_items.classify(path, kind)
+            self.assertIn(tag, {"safe-cache", "review", "git-maintenance", "do-not-delete"})
+            self.assertIn(recommendation, {"delete", "review", "git-gc", "keep"})
+            self.assertTrue(impact.strip(), path)
+
+    def test_selector_has_impact_fallback_for_legacy_scan_and_escapes_new_impact(self):
+        label_zh, label_en, legacy_impact_zh, legacy_impact_en, style = selector_server.deletion_guidance(
+            {"tag": "git-maintenance", "recommendation": "git-gc"}
+        )
+        self.assertEqual(label_zh, "不要直接删")
+        self.assertEqual(label_en, "Do not delete directly")
+        self.assertIn("git gc", legacy_impact_zh)
+        self.assertIn("git gc", legacy_impact_en)
+        self.assertEqual(style, "danger")
+
+        npx_label_zh, npx_label_en, npx_impact_zh, npx_impact_en, npx_style = selector_server.deletion_guidance(
+            {
+                "tag": "review",
+                "recommendation": "review",
+                "path": str(Path.home() / ".npm" / "_npx"),
+            }
+        )
+        self.assertEqual(npx_label_zh, "建议删")
+        self.assertEqual(npx_label_en, "Recommended")
+        self.assertTrue(npx_impact_zh)
+        self.assertTrue(npx_impact_en)
+        self.assertEqual(npx_style, "recommended")
+
+        rendered = selector_server.render_html(
+            [
+                {
+                    "id": "I001",
+                    "size_gb": 1,
+                    "tag": "safe-cache",
+                    "recommendation": "delete",
+                    "impact": "重建 <缓存>",
+                    "impact_en": "rebuild <cache>",
+                    "kind": "dir",
+                    "path": "/tmp/cache",
+                    "reason": "test",
+                }
+            ],
+            Path("/tmp/selection.json"),
+        )
+        self.assertIn('<body data-language="zh">', rendered)
+        self.assertIn('id="language-toggle"', rendered)
+        self.assertIn("let language = 'zh'", rendered)
+        self.assertIn("重建 &lt;缓存&gt;", rendered)
+        self.assertIn("rebuild &lt;cache&gt;", rendered)
+        self.assertNotIn("重建 <缓存>", rendered)
+        self.assertNotIn("rebuild <cache>", rendered)
+
     def test_apply_requires_confirmation_for_destructive_mode(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
