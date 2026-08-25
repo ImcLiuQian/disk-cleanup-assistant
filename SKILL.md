@@ -53,6 +53,8 @@ python3 scripts/selector_server.py \
 
 Open or share `http://127.0.0.1:8765/`. Keep the server running until the user saves choices. Stop it after cleanup.
 
+The selector must show an explicit deletion recommendation and the expected impact for every item. Treat these as guidance, not deletion authorization. New scans persist an `impact` field; the selector supplies a conservative tag-based fallback when opening an older candidate JSON without that field. The page defaults to Chinese and provides an in-page English toggle. The toggle must switch all controls, status text, recommendation labels, impact text, type labels, and classification reasons without changing checkbox state; reloading returns to Chinese.
+
 4. Apply the saved selection only after the user says to delete:
 
 ```bash
@@ -83,6 +85,8 @@ Use these classifications in reports:
 - `app-uninstall`: an app bundle in `/Applications`; delete only when the user selects uninstall/removal.
 - `git-maintenance`: `.git` storage; prefer `git gc --prune=now` instead of deleting `.git`.
 - `do-not-delete`: system, OS, or protected locations.
+
+Recommendation labels should be directly actionable: `delete` means recommended cache cleanup, `review` means inspect and confirm first, `git-gc` means do not delete directly, and `keep` means do not delete. Impact text should name the likely consequence, such as cache rebuild/redownload, IDE reindexing, sign-in or offline-data loss, application removal, project-data loss, Git corruption, or system damage.
 
 ## Evidence To Return
 
